@@ -1,0 +1,12 @@
+name = "BCA"
+uuid = "23117c83-64d2-4f07-927f-a6cb90943569"
+authors = ["marco <crivaronicolini@hotmail.com>"]
+version = "0.1.0"
+
+[deps]
+DimensionfulAngles = "2d4b8d7a-02d9-40f9-9abe-9c695b77de0d"
+LanguageServer = "2b0e0bc5-e4fd-59b4-8912-456d1b03d8d7"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
