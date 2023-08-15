@@ -239,6 +239,19 @@ function choose(recoil::Vec3, target::Target)
   @error "Input error: method choose() operation failed to choose a valid species. Check densities."
 end
 
+# Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
+function choose_deterministic(recoil::Vec3, target::Target)
+  m = layer_atpos(recoil, target).material
+  for (componentidx, cumulative_concentration) in enumerate(cumulative_concentration_atpos(recoil, target))
+    return componentidx, m.Z[componentidx],
+    m.m[componentidx],
+    m.Ec[componentidx],
+    m.Es[componentidx],
+    m.interactionindex[componentidx]
+  end
+  @error "Input error: method choose() operation failed to choose a valid species. Check densities."
+end
+
 function electronic_stopping_cross_sections(particle::Particle, target::Target, electronic_stopping_mode::ElectronicStoppingMode)
   E, m, Za = particle.E, particle.m, particle.Z
   pos = particle.pos

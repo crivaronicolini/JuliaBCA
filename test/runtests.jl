@@ -8,6 +8,7 @@ eV = u"eV"
 um = u"μm"
 cm = u"cm"
 rad = u"radᵃ"
+ang = u"Å"
 
 @testset "momentum conservation" begin
   for energy_eV in [1]eV
@@ -42,7 +43,8 @@ rad = u"radᵃ"
             interaction_potential=[[potential]],
             scattering_integral=scattering_int
           )
-          binary_collision_geometries = BCA.choosecollisiongeometries(particle1, target, options)
+
+          binary_collision_geometries = BCA.determine_mfp_phi_impact_parameter(particle1, target, options)
           @info "ϕ_azimuthal " binary_collision_geometries[1].ϕ_azimuthal binary_collision_geometries[1].impactparameter binary_collision_geometries[1].mfp
 
           species_index, particle2 = BCA.choose_collision_partner(particle1, target, binary_collision_geometries[1])
@@ -137,3 +139,85 @@ end
   @test particle.pos.z == um * 0.0
   @test distance_traveled == mfp - asymptotic_deflection
 end
+
+@testset "test deterministic momentum" begin
+  for energy_eV in [1]eV
+    # for energy_eV in [1, 10, 100, 1000, 10000]eV
+    m1 = 183.8amu
+    Z1 = 74
+    E1 = energy_eV
+    Ec1 = 1eV
+    Es1 = 1eV
+    pos = Vec3(0.0, 0.0, 0.0) .* um
+
+    material = Material(6.941amu, 3, 0eV, 1eV, 1eV, 0.06306u"1/Å^3")
+    target = Disk(material, 0.1um, 0.1um)
+
+    θ = 0.974194583091052rad
+    dir = Vec3(cos(θ), sin(θ), 0.0)
+
+    for high_energy_free_flight_paths in [false]
+      # for high_energy_free_flight_paths in [true, false]
+      for potential in [BCA.Moliere]
+        for scattering_int in [BCA.Mendenhall_weller]
+
+          @info "Case:" energy_eV high_energy_free_flight_paths potential scattering_int
+          particle1 = Particle(m=m1, Z=Z1, E=energy_eV, Ec=Ec1, Es=Es1, pos=pos, dir=dir)
+
+          options = Options(
+            name="test",
+            track_recoils=true,
+            weak_collision_order=1,
+            high_energy_free_flight_paths=high_energy_free_flight_paths,
+            electronic_stopping_mode=BCA.INTERPOLATED,
+            interaction_potential=[[potential]],
+            scattering_integral=scattering_int
+          )
+
+          binary_collision_geometries = BCA.determine_mfp_phi_impact_parameter_deterministic(particle1, target, options)
+
+          @info "Phi: $(binary_collision_geometries[1].ϕ_azimuthal), p: $(binary_collision_geometries[1].impactparameter), mfp: $(binary_collision_geometries[1].mfp)"
+
+          @test binary_collision_geometries[1].ϕ_azimuthal ≈ 1.2566370614359172rad
+          @test binary_collision_geometries[1].impactparameter ≈ 0.6339019280131679ang
+          @test binary_collision_geometries[1].mfp ≈ 2.5123608152996693ang
+
+          species_index, particle2 = BCA.choose_collision_partner_deterministic(particle1, target, binary_collision_geometries[1])
+
+          @info particle2
+
+          @test particle2.m ≈ 6.941amu
+          @test particle2.E ≈ 0eV
+          @test particle2.Ec ≈ 1eV
+          @test particle2.Es ≈ 1eV
+          @test uconvert.(ang, particle2.pos) ≈ Vec3(1.249484012440868, 2.1884053732017623, 0.6028765593289847)ang #recoil
+          @test particle2.dir ≈ Vec3(0.561834516559727, 0.8272496455134314, 0.0) #cosdir
+          @test particle2.asymptotic_deflection ≈ 0um
+
+          mom1_0 = BCA.get_momentum(particle1)
+          mom2_0 = BCA.get_momentum(particle2)
+
+          initial_momentum = uconvert.(u"u*Å/s", mom1_0 + mom2_0)
+
+          bca_result = BCA.calculate_binary_collision(particle1, particle2, binary_collision_geometries[1], options)
+
+          @info "bca result" bca_result.E_recoil bca_result.ψ bca_result.ψ_recoil
+
+          @info "Initial energies" particle1.E particle2.E
+
+          # Case: 1 false Moliere Potential Mendenhall-Weller 4-Point Lobatto Quadrature
+          #
+          # Phi: 1.2566370614359172 rad p: 0.6339019280131679 Angstrom mfp: 2.5123608152996693 Angstrom
+          #
+          # Particle 2: m: 6.941, E: 0, Ec: 1, Es: 1, pos: 1.249484012440868, 2.1884053732017623, 0.6028765593289847, dir: 0.561834516559727, 0.8272496455134314, 0, asy_defl: 0
+          #
+          # E_recoil: 0.13261896212622665 eV Psi: 0.017738493230885534 rad Psi_recoil: 0.23560429073267436 rad
+          #
+          # Initial Energies: 1 eV 0 eV
+
+        end
+      end
+    end
+  end
+end
+

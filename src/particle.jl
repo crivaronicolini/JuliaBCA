@@ -12,9 +12,9 @@ end
 
 # StaticArrays.similar_type(::Type{<:Vec3}, ::Type{T}, s::Size{(3,)}) where {T} = Vec3{T}
 
-function Base.show(io::Base.IO, v::Vec3)
-  println("show Vec3($(v.x), $(v.y), $(v.z))")
-end
+# function Base.show(io::Base.IO, v::Vec3)
+#   println("show Vec3($(v.x), $(v.y), $(v.z))")
+# end
 
 struct TrajectoryElement
   E::Energy

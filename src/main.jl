@@ -88,9 +88,8 @@ end
 
 # For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 # The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
-function choosecollisiongeometries(particle1::Particle, target::Target, options::Options)
-  # determine_mfp_phi_impact_paramtere in RustBCA
-  @info "choosecollisiongeometries"
+function determine_mfp_phi_impact_parameter(particle1::Particle, target::Target, options::Options)
+  @info "determine_mfp_phi_impact_parameter"
 
   mfp = meanfreepath(particle1.pos, target)
 
@@ -117,6 +116,43 @@ function choosecollisiongeometries(particle1::Particle, target::Target, options:
 
     if options.mean_free_path_model == GASEOUS
       mfp *= -log(rand())
+    end
+
+    return [CollisionGeometry(ϕs_azimuthal[k], impactparameters[k], mfp) for k in eachindex(ϕs_azimuthal)]
+    # return CollisionGeometry(ϕs_azimuthal, impactparameters, mfp)
+  end
+end
+
+# For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
+# The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
+function determine_mfp_phi_impact_parameter_deterministic(particle1::Particle, target::Target, options::Options)
+  @info "determine_mfp_phi_impact_parameter"
+
+  mfp = meanfreepath(particle1.pos, target)
+
+  # Each weak collision gets its own aziumuthal angle in annuli around collision point
+  collision_order = options.weak_collision_order
+  ϕs_azimuthal = 2π * fill(0.2, length(collision_order)) * u"radᵃ"
+
+  if options.high_energy_free_flight_paths
+    #TODO
+    @warn "high_energy_free_flight_paths is not implemented"
+
+  else
+    #If not using free flight paths, use weak collision model
+    pmax = mfp / √π
+
+    #cylindrical geometry
+    impactparameters = pmax .* sqrt.(fill(0.2, length(collision_order)))
+
+    #Atomically rough surface - scatter initial collisions
+    if particle1.first_step
+      mfp *= 0.2
+      particle1.first_step = false
+    end
+
+    if options.mean_free_path_model == GASEOUS
+      mfp *= -log(0.2)
     end
 
     return [CollisionGeometry(ϕs_azimuthal[k], impactparameters[k], mfp) for k in eachindex(ϕs_azimuthal)]
@@ -158,7 +194,7 @@ function choose_collision_partner(particle::Particle, target::Target, collisiong
   ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
 
   sinϕ, cosϕ = sincos(ϕ)
-  cosdir = cosx, cosy, cosz = cos.(particle.dir)
+  cosdir = cosx, cosy, cosz = particle.dir
   sinx = √(1 - cosx^2)
 
   recoil = Vec3(x + mfp * cosx - impactparameter * cosϕ * sinx,
@@ -166,6 +202,26 @@ function choose_collision_partner(particle::Particle, target::Target, collisiong
     z + mfp * cosz + impactparameter * (sinϕ * cosy - cosϕ * cosx * cosz) / sinx)
 
   species_index, Z, m, Ec, Es, interactionindex = choose(recoil, target)
+  newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=particle.track_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
+
+  return species_index, newparticle
+end
+
+#For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
+function choose_collision_partner_deterministic(particle::Particle, target::Target, collisiongeometry::CollisionGeometry)
+  @info "choose_collision_partner_deterministic"
+  x, y, z = particle.pos
+  ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
+
+  sinϕ, cosϕ = sincos(ϕ)
+  cosdir = cosx, cosy, cosz = particle.dir
+  sinx = √(1 - cosx^2)
+
+  recoil = Vec3(x + mfp * cosx - impactparameter * cosϕ * sinx,
+    y + mfp * cosy - impactparameter * (sinϕ * cosz - cosϕ * cosy * cosx) / sinx,
+    z + mfp * cosz + impactparameter * (sinϕ * cosy - cosϕ * cosx * cosz) / sinx)
+
+  species_index, Z, m, Ec, Es, interactionindex = choose_deterministic(recoil, target)
   newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=particle.track_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
 
   return species_index, newparticle
@@ -284,7 +340,7 @@ function singleionbca(particle::Particle, target::Target, options::Options)
     while !particle1.stopped && !particle1.left
       @info "while !particle1.stopped && !particle1.left"
 
-      collisiongeometries = choosecollisiongeometries(particle1, target, options)
+      collisiongeometries = determine_mfp_phi_impact_parameter(particle1, target, options)
 
       if options.accelerated_ions
         if !particle1 in target
