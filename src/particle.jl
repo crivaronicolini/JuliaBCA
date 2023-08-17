@@ -144,7 +144,7 @@ function surface_refraction!(particle::Particle, normal::Vec3, Es::Energy)
   E = particle.E
   cosθ = dot(particle.dir, normal)
 
-  u = sqrt(E / (E + Es)) .* particle.dir .- sqrt(E) .+ (E * cosθ^2 + Es)
+  u = √(E / (E + Es)) .* particle.dir .+ ((-√E * cosθ + √(E * cosθ^2 + Es)) / √(E + Es)) * normal
   particle.dir = u
   particle.E += Es
 end
