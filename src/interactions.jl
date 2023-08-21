@@ -120,8 +120,7 @@ diff_doca_function(x0::Real, β::Real, reduced_energy::Energy, interaction_poten
 # TODO rest of interaction potentials 
 function distance_of_closest_approach_function(a::Length, Za::Int, Zb::Int, relative_energy::Energy, impact_parameter::Length, interaction_potential::Type{Moliere})
   reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR * a * relative_energy / (Za * Zb)
-  β = impact_parameter / a
-  f(r::Length) = doca_function(upreferred(r / a), upreferred(β), reduced_energy, interaction_potential)
-  # error("ola")
+  β = impact_parameter / a |> NoUnits
+  f(r::Length) = doca_function(upreferred(r / a), β, reduced_energy, interaction_potential)
   return f
 end

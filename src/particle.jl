@@ -59,7 +59,7 @@ abstract type AbstractParticle end
   tracked_vector::Vec3 = [0.0, 0.0, 0.0]
 end
 
-function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x::Length, dir::Vector)
+function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x::Length, dir::Vector; track_trajectories=false)
   dir = Vec3(dir...)
 
   # @assert isapprox(abs(dir.x / dir_mag), 1, atol=eps(Float64), rtol=0) "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component."
@@ -68,7 +68,7 @@ function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x:
   # dir_mag = norm(dir)
   @assert E > zero(E) "Input error: incident energy $E; must be greater than zero."
 
-  Particle(m=m, Z=Z, E=E, Ec=Ec, Es=Es, pos=Vec3(ustrip(x), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true)
+  Particle(m=m, Z=Z, E=E, Ec=Ec, Es=Es, pos=Vec3(ustrip(x), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true, track_trajectories=track_trajectories)
 end
 
 function add_trajectory!(particle::Particle)
@@ -86,8 +86,8 @@ end
 # end
 
 function get_momentum(particle::Particle)
-  speed = sqrt(2 * particle.E / particle.m)
-  return particle.m .* speed .* particle.dir
+  speed = sqrt(2.0 * particle.E / particle.m)
+  return particle.m * speed .* particle.dir
 end
 
 function dot(u::FieldVector, v::FieldVector)

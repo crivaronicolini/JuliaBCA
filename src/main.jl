@@ -6,7 +6,7 @@ function dist(u::Vec3, v::Vec3)
   √sum((u - v) .^ 2)
 end
 
-function scattering_integrand_mw(x::Real, β::Real, reduced_energy::Real, interaction_potential::Type{T} where {T<:InteractionPotential})
+function scattering_integrand_mw(x::Real, β::Real, reduced_energy, interaction_potential::Type{T} where {T<:InteractionPotential})
   (1 - ϕ_screening(x, interaction_potential) / (x * reduced_energy) - β^2 / x^2)^(-1 / 2)
 end
 
@@ -17,24 +17,22 @@ struct Mendenhall_weller <: ScatteringIntegral end
 function Mendenhall_weller(Za::Int, Zb::Int, ma::Mass, mb::Mass, E0::Energy, impactparameter::Length, x0::Real, interaction_potential::Type{T} where {T<:InteractionPotential})
   # Lindhard screening length and reduced energy
   a = screening_length(Za, Zb, interaction_potential)
-  reduced_energy = upreferred(LINDHARD_REDUCED_ENERGY_PREFACTOR * (a * mb * E0) / (Za * Zb * (ma + mb)))
-  β = upreferred(impactparameter / a)
+  relative_energy = E0 * mb / (ma + mb)
+  reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR * a * relative_energy / (Za * Zb)
+  β = impactparameter / a |> NoUnits
 
   f = scattering_integrand_mw
   # Scattering integral quadrature from Mendenhall and Weller 2005
   λ0 = ((1 / 2) + (β^2 / (2x0^2)) - (dϕ_screening(x0, interaction_potential) / 2reduced_energy))^(-1 / 2)
   # rust bca uses different formula and constants TODO check
-  # α = (1.0 / 12.0) *
-  #     (1 + λ0
-  #      + 5.0 * (0.4206 * f(x0 / 0.9072, β, reduced_energy, interaction_potential)
-  #               +
-  #               0.9072 * f(x0 / 0.8465224, β, reduced_energy, interaction_potential)))
+  α = (1 / 12) *
+      (1 + λ0
+       + 5 * (0.4206 * f(x0 / 0.9072, β, reduced_energy, interaction_potential)
+              +
+              0.9072 * f(x0 / 0.4206, β, reduced_energy, interaction_potential)))
 
-  α = (1.0 + λ0) / 30.0
-  +0.03472124 * f(x0 / 0.9830235, β, reduced_energy, interaction_potential)
-  +0.1476903 * f(x0 / 0.8465224, β, reduced_energy, interaction_potential)
 
-  return π * (1.0 - β * α / x0)
+  return π * (1 - β * α / x0)
 end
 
 @kwdef struct Options
@@ -166,7 +164,7 @@ function distance_of_closest_approach(particle1::Particle, particle2::Particle, 
   Zb, Mb = particle2.Z, particle2.m
   E0 = particle1.E
 
-  relative_energy = upreferred(E0 * Mb / (Ma + Mb)) # adimentional
+  relative_energy = E0 * Mb / (Ma + Mb)
   p = collisiongeometry.impactparameter
 
   interaction_potential = options.interaction_potential[particle1.interactionindex][particle2.interactionindex]
@@ -177,8 +175,6 @@ function distance_of_closest_approach(particle1::Particle, particle2::Particle, 
   a = screening_length(Za, Zb, interaction_potential)
   f = distance_of_closest_approach_function(a, Za, Zb, relative_energy, p, interaction_potential)
 
-  # 1
-  # (2, 12, 2.7709923664122136 eV, 1.1912036952147724 Å).1912036952147724 Å
   try
     x0 = find_zero(f, p)
     return upreferred(x0 / uconvert(u"Å", a)) #adimensional
@@ -188,8 +184,7 @@ function distance_of_closest_approach(particle1::Particle, particle2::Particle, 
 end
 
 #For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
-function choose_collision_partner(particle::Particle, target::Target, collisiongeometry::CollisionGeometry)
-  @info "choose_collision_partner"
+function choose_collision_partner(particle::Particle, target::Target, collisiongeometry::CollisionGeometry, options::Options)
   x, y, z = particle.pos
   ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
 
@@ -202,14 +197,13 @@ function choose_collision_partner(particle::Particle, target::Target, collisiong
     z + mfp * cosz + impactparameter * (sinϕ * cosy - cosϕ * cosx * cosz) / sinx)
 
   species_index, Z, m, Ec, Es, interactionindex = choose(recoil, target)
-  newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=particle.track_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
+  newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=options.track_recoil_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
 
   return species_index, newparticle
 end
 
 #For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
-function choose_collision_partner_deterministic(particle::Particle, target::Target, collisiongeometry::CollisionGeometry)
-  @info "choose_collision_partner_deterministic"
+function choose_collision_partner_deterministic(particle::Particle, target::Target, collisiongeometry::CollisionGeometry, options::Options)
   x, y, z = particle.pos
   ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
 
@@ -222,7 +216,7 @@ function choose_collision_partner_deterministic(particle::Particle, target::Targ
     z + mfp * cosz + impactparameter * (sinϕ * cosy - cosϕ * cosx * cosz) / sinx)
 
   species_index, Z, m, Ec, Es, interactionindex = choose_deterministic(recoil, target)
-  newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=particle.track_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
+  newparticle = Particle(m=m, Z=Z, E=0.0 * Ec, Ec=Ec, Es=Es, pos=recoil, dir=cosdir, track_trajectories=options.track_recoil_trajectories, interactionindex=interactionindex, weight=particle.weight, tag=particle.tag, tracked_vector=particle.tracked_vector)
 
   return species_index, newparticle
 end
@@ -249,7 +243,7 @@ function calculate_binary_collision(particle1::Particle, particle2::Particle, co
   asymptotic_deflection = typeof(interaction_potential) != Coulomb ? x0 * a * sin(θ / 2) : 0.0u"μm"
   ψ = abs(atan(sin(θ), (ma / mb + cos(θ)))) * u"radᵃ"
   ψ_recoil = abs(atan(sin(θ), 1 - cos(θ))) * u"radᵃ"
-  E_recoil = E0 * (θ / 2)^2 * (4ma * mb) / (ma + mb)^2 / u"radᵃ^2"
+  E_recoil = E0 * (sin(θ / 2))^2 * (4ma * mb) / (ma + mb)^2
 
   return CollisionResult(θ, ψ, ψ_recoil, E_recoil, asymptotic_deflection, x0)
 end
@@ -276,8 +270,8 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
 
   particle.E -= E_recoil
   @assert !isnan(particle.E) "Numerical error: particle energy is NaN following collision."
-  if particle.E < 0 * unit(particle.E)
-    particle.E = 0.0 * unit(particle.E)
+  if particle.E < 0u"eV"
+    particle.E = 0.0u"eV"
   end
 
   pos = particle.pos
@@ -304,8 +298,8 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
 
     energy_loss!(particle, E_recoil, ΔE, options)
 
-  elseif E_recoil > 0 * unit(E_recoil)
-    energy_loss!(particle, E_recoil, 0 * unit(E_recoil), options)
+  elseif E_recoil > 0u"eV"
+    energy_loss!(particle, E_recoil, 0u"eV", options)
   end
 end
 
@@ -433,11 +427,11 @@ end
 
 function bca(particles::Vector{Particle}, target::Target, options::Options)
   l = length(particles)
-  result = []
+  result = Particle[]
   for (i, p) in enumerate(particles)
     println("ion $i/$l")
     r = singleionbca(p, target, options)
-    push!(result, r)
+    push!(result, r...)
   end
   result
 end

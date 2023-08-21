@@ -1,18 +1,22 @@
 using Unitful
-import Unitful: Length, Energy, Mass, Wavenumber, c0, ε0, me, Na
+import Unitful: Length, Energy, Mass, Wavenumber, c0, me, Na
 # import PhysicalConstants.CODATA2018: c_0, e, ε_0, a_0, m_e
+const ang = u"Å"
 
 #from PhysicalConstants, adding units
-global e = 1.602176634e-19 * u"C"
-global a_0 = 5.29177210903e-11 * u"m"
+const e = 1.602176634e-19 * u"C"
+const a_0 = 5.29177210903e-11 * u"m"
 # from wikipedia, CODATA2018, Molar mass constant
-global Mu = (0.99999999965 * 10^(-3))u"kg/mol"
+const Mu = (0.99999999965 * 10^(-3))u"kg/mol"
+
+const ε0 = uconvert(u"F/m", Unitful.ε0)
 
 # global BETHE_BLOCH_PREFACTOR = (e^2 / (4π * ε0))^2 * 4π / (me * c0^2)
-global BETHE_BLOCH_PREFACTOR = (4π / (me * c0^2)) * (e^2 / (4π * ε0))^2
+const BETHE_BLOCH_PREFACTOR = (4π / (me * c0^2)) * (e^2 / (4π * ε0))^2
 # TODO CHANGED e BY eV
-global LINDHARD_SCHARFF_PREFACTOR = 1.212 * u"eV^(1/2)*Å^2"
-global LINDHARD_REDUCED_ENERGY_PREFACTOR = 4π * ε0 / e^2
+const LINDHARD_SCHARFF_PREFACTOR = 1.212 * u"eV^(1/2)*Å^2"
+const LINDHARD_REDUCED_ENERGY_PREFACTOR = 4334488014869623000000000000 * unit(ε0 / e^2)
+
 
 @enum ElectronicStoppingMode INTERPOLATED LOWENERGYLOCAL LOWENERGYNONLOCAL LOWENERGYEQUIPARTITION
 @derived_dimension AtomicConcentration Unitful.𝐋^3
@@ -131,7 +135,7 @@ end
 #this function depends on the specific target geometry, so target must be specific
 function inside(pos::Vec3, disk::Disk)
   x, y, z = pos
-  if 0 * x <= x <= disk.interfaces[end] && radius(y, z) <= disk.diameter / 2
+  if 0 * x < x < disk.interfaces[end] && radius(y, z) < disk.diameter / 2
     return true
   else
     return false
@@ -167,15 +171,13 @@ function inside_energybarrier(pos::Vec3, disk::Disk)
   end
 end
 
-
-# function getindex(l::Layer)
-# end
-
 function layer_atpos(pos::Vec3, target::Target)
   layerindex = searchsortedlast(target.interfaces, pos.x)
   if layerindex == 0
-    @warn "pos $pos outside target, ignoring"
     layerindex += 1
+  end
+  if layerindex >= length(target.interfaces)
+    layerindex -= 1
   end
   return target.layers[layerindex]
 end
