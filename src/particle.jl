@@ -3,6 +3,7 @@ import Unitful: Length, Energy, Mass
 using DimensionfulAngles
 using DimensionfulAngles: Angle
 
+Unitful.preferunits(u"Å")
 
 mutable struct Vec3{T} <: FieldVector{3,T}
   x::T
@@ -60,6 +61,7 @@ abstract type AbstractParticle end
 end
 
 function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x::Length, dir::Vector; track_trajectories=false)
+  @debug "default_incident"
   dir = Vec3(dir...)
 
   # @assert isapprox(abs(dir.x / dir_mag), 1, atol=eps(Float64), rtol=0) "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component."
@@ -72,6 +74,7 @@ function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x:
 end
 
 function add_trajectory!(particle::Particle)
+  @debug "add_trajectory!" particle.trajectory particle.E particle.pos
   if particle.track_trajectories
     push!(particle.trajectory, TrajectoryElement(particle.E, particle.pos))
   end
@@ -86,6 +89,7 @@ end
 # end
 
 function get_momentum(particle::Particle)
+  @debug "get_momentum"
   speed = sqrt(2.0 * particle.E / particle.m)
   return particle.m * speed .* particle.dir
 end
@@ -98,12 +102,17 @@ function norm(v::FieldVector)
   √(sum(v .^ 2))
 end
 
+function norm(v)
+  √(sum(v .^ 2))
+end
+
 function normalized(v::FieldVector)
   v ./ norm(v)
 end
 
 #Rotate a particle by deflection ψ at an azimuthal angle ϕ
 function rotate!(particle::Particle, ψ::Angle, ϕ::Angle)
+  @debug "rotate!"
   #Particle direction update formula (2) from the original TRIDYN paper, see Moeller and Eckstein 1988
   cosα, cosβ, cosγ = particle.dir
   sinα = √(1 - cosα^2)
@@ -116,6 +125,7 @@ function rotate!(particle::Particle, ψ::Angle, ϕ::Angle)
 end
 
 function advance!(particle::Particle, mfp::Length, asymptotic_deflection::Length)
+  @debug "advance!"
   if particle.E > particle.Ec
     add_trajectory!(particle)
   end
@@ -141,6 +151,7 @@ end
 
 # change particle direction by refraction
 function surface_refraction!(particle::Particle, normal::Vec3, Es::Energy)
+  @debug "surface_refraction!"
   E = particle.E
   cosθ = dot(particle.dir, normal)
 
@@ -152,6 +163,7 @@ end
 
 # Calculate the refraction angle based on the surface binding energy of the material.
 function refraction_angle(cosθ, energy_old, energy_new)
+  @debug "refraction_angle"
   cosθ = cosθ > 1 ? sign(cosθ) : cosθ
   sinθ_0 = sqrt(1 - cosθ^2)
   sinθ_1 = sinθ_0 * sqrt(energy_old / energy_new)

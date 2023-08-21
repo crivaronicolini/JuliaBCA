@@ -3,6 +3,7 @@ using Roots
 @enum MeanFreePathModel LIQUID GASEOUS
 @derived_dimension StoppingPower (Unitful.𝐋^4 * Unitful.𝐌 * Unitful.𝐓^(-2))
 function dist(u::Vec3, v::Vec3)
+  @debug "dist"
   √sum((u - v) .^ 2)
 end
 
@@ -15,6 +16,7 @@ struct Mendenhall_weller <: ScatteringIntegral end
 
 # function Mendenhall_weller(Za::Int, Zb::Int, ma::Mass, mb::Mass, E0::Energy, impactparameter::Length, x0::Length, interaction_potential::Union{Type{Moliere}})
 function Mendenhall_weller(Za::Int, Zb::Int, ma::Mass, mb::Mass, E0::Energy, impactparameter::Length, x0::Real, interaction_potential::Type{T} where {T<:InteractionPotential})
+  @debug "Mendenhall_weller"
   # Lindhard screening length and reduced energy
   a = screening_length(Za, Zb, interaction_potential)
   relative_energy = E0 * mb / (ma + mb)
@@ -87,7 +89,7 @@ end
 # For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 # The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
 function determine_mfp_phi_impact_parameter(particle1::Particle, target::Target, options::Options)
-  @info "determine_mfp_phi_impact_parameter"
+  @debug "determine_mfp_phi_impact_parameter"
 
   mfp = meanfreepath(particle1.pos, target)
 
@@ -124,7 +126,7 @@ end
 # For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 # The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
 function determine_mfp_phi_impact_parameter_deterministic(particle1::Particle, target::Target, options::Options)
-  @info "determine_mfp_phi_impact_parameter"
+  @debug "determine_mfp_phi_impact_parameter"
 
   mfp = meanfreepath(particle1.pos, target)
 
@@ -159,12 +161,15 @@ function determine_mfp_phi_impact_parameter_deterministic(particle1::Particle, t
 end
 
 function distance_of_closest_approach(particle1::Particle, particle2::Particle, collisiongeometry::CollisionGeometry, options::Options)
-  @info "distance_of_closest_approach"
+  @debug "distance_of_closest_approach"
   Za, Ma = particle1.Z, particle1.m
   Zb, Mb = particle2.Z, particle2.m
   E0 = particle1.E
 
   relative_energy = E0 * Mb / (Ma + Mb)
+  @debug "rel energy" relative_energy
+  # relative_energy = 0.03638965927619127 eV
+  # relative_energy:  0.036389659276191276 eV (BCA)
   p = collisiongeometry.impactparameter
 
   interaction_potential = options.interaction_potential[particle1.interactionindex][particle2.interactionindex]
@@ -185,6 +190,7 @@ end
 
 #For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
 function choose_collision_partner(particle::Particle, target::Target, collisiongeometry::CollisionGeometry, options::Options)
+  @debug "choose_collision_partner"
   x, y, z = particle.pos
   ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
 
@@ -204,6 +210,7 @@ end
 
 #For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
 function choose_collision_partner_deterministic(particle::Particle, target::Target, collisiongeometry::CollisionGeometry, options::Options)
+  @debug "choose_collision_partner_deterministic"
   x, y, z = particle.pos
   ϕ, impactparameter, mfp = collisiongeometry.ϕ_azimuthal, collisiongeometry.impactparameter, collisiongeometry.mfp
 
@@ -223,7 +230,7 @@ end
 
 # Calculate the binary collision result of two particles for a given binary collision geometry. If the calculation fails, return an Error.
 function calculate_binary_collision(particle1::Particle, particle2::Particle, collisiongeometry::CollisionGeometry, options::Options)
-  @info "calculate_binary_collision"
+  @debug "calculate_binary_collision"
   Za, Zb = particle1.Z, particle2.Z
   ma, mb = particle1.m, particle2.m
   E0 = particle1.E
@@ -233,6 +240,7 @@ function calculate_binary_collision(particle1::Particle, particle2::Particle, co
 
   a = screening_length(Za, Zb, interaction_potential)
   x0 = distance_of_closest_approach(particle1, particle2, collisiongeometry, options)
+  @debug " " a x0 #BIEN
 
   θ = scattering_integral(Za, Zb, ma, mb, E0, collisiongeometry.impactparameter, x0, interaction_potential) * u"radᵃ"
   if θ.val == NaN
@@ -251,7 +259,7 @@ end
 
 # Oen-Robinson local electronic energy loss for a collision between particles a and b.
 function oen_robinson_loss(Za::Int, Zb::Int, Se::StoppingPower, x0::Real, interaction_potential::Type{T} where {T<:InteractionPotential})
-  @info "oen_robinson_loss"
+  @debug "oen_robinson_loss"
   #Oen-Robinson local electronic stopping power
   a = screening_length(Za, Zb, interaction_potential)
 
@@ -264,7 +272,7 @@ end
 
 
 function update_particle_energy!(particle::Particle, target::Target, distance_traveled::Length, E_recoil::Energy, x0::Real, strong_collision_Z::Int, strong_collision_index::Int, options::Options)
-  @info "update_particle_energy!"
+  @debug "update_particle_energy!"
   #If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
   @assert !isnan(E_recoil) "Numerical error: recoil Energy is NaN. E0 = $(particle.E) Za = $(particle.Z) Ma = $(particle.m) x0 = $x0 Zb = $strong_collision_Z delta-x = $distance_traveled"
 
@@ -278,6 +286,7 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
   e_stop_mode = options.electronic_stopping_mode
 
   if inside(particle.pos, target)
+    @debug "inside target in update_particle_energy" particle.pos
     interaction_potential = options.interaction_potential[particle.interactionindex][property_atpos(:interactionindex, pos, target)[strong_collision_index]]
 
     e_stop_powers = electronic_stopping_cross_sections(particle, target, e_stop_mode)
@@ -293,7 +302,7 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
          e_stop_mode == LOWENERGYNONLOCAL ? oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) :
          e_stop_mode == LOWENERGYEQUIPARTITION ? 0.5sum(n .* e_stop_powers) * distance_traveled + 0.5oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) : error("No electronic stopping mode supplied")
 
-    @info ΔE
+    @debug ΔE
     particle.E += -ΔE
 
     energy_loss!(particle, E_recoil, ΔE, options)
@@ -304,7 +313,7 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
 end
 
 function boundary_condition_planar!(particle::Particle, target::Target)
-  @info "boundary_condition_planar"
+  @debug "boundary_condition_planar"
   pos = particle.pos
   E = particle.E
   Ec = particle.Ec
@@ -327,12 +336,12 @@ function singleionbca(particle::Particle, target::Target, options::Options)
   particle_index = length(particles)
 
   while particle_index > 0
-    @info "start new loop"
-    @info "particle index $particle_index"
-    @info "particle len $(length(particles))"
+    @debug "start new loop"
+    @debug "particle index $particle_index"
+    @debug "particle len $(length(particles))"
     particle1 = pop!(particles)
     while !particle1.stopped && !particle1.left
-      @info "while !particle1.stopped && !particle1.left"
+      @debug "while !particle1.stopped && !particle1.left"
 
       collisiongeometries = determine_mfp_phi_impact_parameter(particle1, target, options)
 
@@ -354,12 +363,12 @@ function singleionbca(particle::Particle, target::Target, options::Options)
       # collision loop
       # aca pone un take(weak_collison_order +1)
       for (k, collisiongeometry) in enumerate(collisiongeometries)
-        @info "for (k, collisiongeometry) in enumerate(collisiongeometries)"
+        @debug "for (k, collisiongeometry) in enumerate(collisiongeometries)"
 
-        species_index, particle2 = choose_collision_partner(particle1, target, collisiongeometry)
+        species_index, particle2 = choose_collision_partner(particle1, target, collisiongeometry, options)
         #If recoil location is inside, proceed with binary collision loop
         if inside(particle2.pos, target) && inside_energybarrier(particle1.pos, target)
-          @info "if inside(particle2.pos, target) && inside_energybarrier(particle1.pos, target)"
+          @debug "if inside(particle2.pos, target) && inside_energybarrier(particle1.pos, target)"
 
           #Determine scattering angle from binary collision
           bca_result = calculate_binary_collision(particle1, particle2, collisiongeometry, options)
@@ -417,10 +426,10 @@ function singleionbca(particle::Particle, target::Target, options::Options)
 
       #Set particle index to topmost particle
       particle_index = length(particles)
-      @info "particle len after new index $(length(particles))"
+      @debug "particle len after new index $(length(particles))"
     end
     push!(particle_output, particle1)
-    @info "particle output len after push $(length(particle_output))"
+    @debug "particle output len after push $(length(particle_output))"
   end
   return particle_output
 end
@@ -429,7 +438,7 @@ function bca(particles::Vector{Particle}, target::Target, options::Options)
   l = length(particles)
   result = Particle[]
   for (i, p) in enumerate(particles)
-    println("ion $i/$l")
+    @info "ion $i/$l"
     r = singleionbca(p, target, options)
     push!(result, r...)
   end

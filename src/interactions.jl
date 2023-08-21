@@ -34,11 +34,13 @@ crossing_point_doca(::Type{InteractionPotential}) = 10.0 * u"A"
 
 # TODO more types with union
 function screened_coulomb(r::Length, a::Length, Za::Int, Zb::Int, interaction_potential::Moliere)
+  @debug "screened_coulomb"
   Za * Zb * (e^2) / (4π * ε0 * r * ϕ_screening(upreferred(r / a), interaction_potential))
 end
 
 # Coulombic interaction potential.
 function coulomb(r::Length, Za::Int, Zb::Int)
+  @debug "coulomb"
   Za * Zb * (e^2) / (4π * ε0 * r)
 end
 
@@ -68,6 +70,7 @@ dϕ_screening(xi::Real, ::Type{Moliere}) = diff_moliere(xi)
 
 #TODO
 function screening_length(Za::Int, Zb::Int, ::Type{Moliere})
+  @debug "screening_length"
   # returns length
   0.8853 * a_0 * (√Za + √Zb)^(-2 / 3)
 end
@@ -119,6 +122,7 @@ diff_doca_function(x0::Real, β::Real, reduced_energy::Energy, interaction_poten
 
 # TODO rest of interaction potentials 
 function distance_of_closest_approach_function(a::Length, Za::Int, Zb::Int, relative_energy::Energy, impact_parameter::Length, interaction_potential::Type{Moliere})
+  @debug "distance_of_closest_approach_function"
   reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR * a * relative_energy / (Za * Zb)
   β = impact_parameter / a |> NoUnits
   f(r::Length) = doca_function(upreferred(r / a), β, reduced_energy, interaction_potential)
