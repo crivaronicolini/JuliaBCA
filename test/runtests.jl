@@ -47,9 +47,9 @@ end
 #
 #   normal = Vec3(1.0, 0.0, 0.0)
 #   BCA.surface_refraction!(particle1, normal, Es)
-#   @debug "surface refraction"
+  @debug "surface refraction"
 #
-#   @debug dir_mag dir dir_new particle1.dir
+  @debug dir_mag dir dir_new particle1.dir
 #
 #   @test particle1.dir ≈ dir_new atol = 1e-12
 #
@@ -62,13 +62,13 @@ end
 #   cosz_new = particle1.dir.z * sinx_new / sinx
 #   dir_new = Vec3(cosx_new, cosy_new, cosz_new)
 #
-#   @debug particle1.dir dir_new
+  @debug particle1.dir dir_new
 #
 #   normal = Vec3(1.0, 0.0, 0.0)
 #   BCA.surface_refraction!(particle1, normal, -Es)
 #
-#   @debug "surface refraction"
-#   @debug particle1.dir dir_new
+  @debug "surface refraction"
+  @debug particle1.dir dir_new
 #
 #   @test particle1.dir ≈ dir_new atol = 1e-12
 # end
@@ -94,7 +94,7 @@ end
 #       for potential in [BCA.Moliere]
 #         for scattering_int in [BCA.Mendenhall_weller]
 #
-#           @debug "Case:" energy_eV high_energy_free_flight_paths potential scattering_int
+          @debug "Case:" energy_eV high_energy_free_flight_paths potential scattering_int
 #           particle1 = Particle(m=m1, Z=Z1, E=energy_eV, Ec=Ec1, Es=Es1, pos=pos, dir=dir)
 #
 #           options = Options(
@@ -108,7 +108,7 @@ end
 #           )
 #
 #           binary_collision_geometries = BCA.determine_mfp_phi_impact_parameter(particle1, target, options)
-#           @debug "ϕ_azimuthal " binary_collision_geometries[1].ϕ_azimuthal binary_collision_geometries[1].impactparameter binary_collision_geometries[1].mfp
+          @debug "ϕ_azimuthal " binary_collision_geometries[1].ϕ_azimuthal binary_collision_geometries[1].impactparameter binary_collision_geometries[1].mfp
 #
 #           species_index, particle2 = BCA.choose_collision_partner(particle1, target, binary_collision_geometries[1])
 #
@@ -119,13 +119,13 @@ end
 #
 #           bca_result = BCA.calculate_binary_collision(particle1, particle2, binary_collision_geometries[1], options)
 #
-#           @debug "bca result" bca_result.E_recoil bca_result.ψ bca_result.ψ_recoil
+          @debug "bca result" bca_result.E_recoil bca_result.ψ bca_result.ψ_recoil
 #
-#           @debug "Initial energies" particle1.E particle2.E
+          @debug "Initial energies" particle1.E particle2.E
 #
 #           # Energy transfer to recoil
 #           particle2.E = bca_result.E_recoil - BCA.average_property_atpos(:Eb, particle2.pos, target)
-#           @debug "after recoil energies" particle2.E
+          @debug "after recoil energies" particle2.E
 #
 #           # Rotate particle 1, 2 by lab frame scattering angles
 #           BCA.rotate!(particle1, bca_result.ψ, binary_collision_geometries[1].ϕ_azimuthal)
@@ -134,7 +134,7 @@ end
 #           # Subtract total energy from all simultaneous collisions and electronic stopping
 #           BCA.update_particle_energy!(particle1, target, 0um, bca_result.E_recoil, 0.0, particle2.Z, species_index, options)
 #
-#           @debug "Final energies" particle1.E particle2.E
+          @debug "Final energies" particle1.E particle2.E
 #
 #           mom1_1 = BCA.get_momentum(particle1)
 #           mom2_1 = BCA.get_momentum(particle2)
@@ -142,7 +142,7 @@ end
 #           final_momentum = uconvert.(u"u*Å/s", mom1_1 + mom2_1)
 #           error = 100(final_momentum - initial_momentum) / BCA.norm(initial_momentum)
 #
-#           @debug "momentum error" initial_momentum final_momentum error
+          @debug "momentum error" initial_momentum final_momentum error
 #
 #           @test initial_momentum.x.val ≈ final_momentum.x.val atol = 1e-12
 #           @test initial_momentum.y.val ≈ final_momentum.y.val atol = 1e-12
@@ -224,7 +224,7 @@ end
 #       for potential in [BCA.Moliere]
 #         for scattering_int in [BCA.Mendenhall_weller]
 #
-#           @debug "Case:" energy_eV high_energy_free_flight_paths potential scattering_int
+          @debug "Case:" energy_eV high_energy_free_flight_paths potential scattering_int
 #           particle1 = Particle(m=m1, Z=Z1, E=energy_eV, Ec=Ec1, Es=Es1, pos=pos, dir=dir)
 #
 #           options = Options(
@@ -239,7 +239,7 @@ end
 #
 #           binary_collision_geometries = BCA.determine_mfp_phi_impact_parameter_deterministic(particle1, target, options)
 #
-#           @debug "Phi: $(binary_collision_geometries[1].ϕ_azimuthal), p: $(binary_collision_geometries[1].impactparameter), mfp: $(binary_collision_geometries[1].mfp)"
+          @debug "Phi: $(binary_collision_geometries[1].ϕ_azimuthal), p: $(binary_collision_geometries[1].impactparameter), mfp: $(binary_collision_geometries[1].mfp)"
 #
 #           @test binary_collision_geometries[1].ϕ_azimuthal ≈ 1.2566370614359172rad
 #           @test binary_collision_geometries[1].impactparameter ≈ 0.6339019280131679ang
@@ -247,7 +247,7 @@ end
 #
 #           species_index, particle2 = BCA.choose_collision_partner_deterministic(particle1, target, binary_collision_geometries[1])
 #
-#           @debug particle2
+          @debug particle2
 #
 #           @test particle2.m ≈ 6.941amu
 #           @test particle2.E ≈ 0eV
@@ -264,9 +264,9 @@ end
 #
 #           bca_result = BCA.calculate_binary_collision(particle1, particle2, binary_collision_geometries[1], options)
 #
-#           @debug "bca result" bca_result.E_recoil bca_result.ψ bca_result.ψ_recoil
+          @debug "bca result" bca_result.E_recoil bca_result.ψ bca_result.ψ_recoil
 #
-#           @debug "Initial energies" particle1.E particle2.E
+          @debug "Initial energies" particle1.E particle2.E
 #
 #           # Case: 1 false Moliere Potential Mendenhall-Weller 4-Point Lobatto Quadrature
 #           #

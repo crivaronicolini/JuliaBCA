@@ -1,5 +1,5 @@
+using Revise
 using Test
-using Plots
 using BCA
 using Unitful
 using DimensionfulAngles
@@ -11,30 +11,29 @@ const cm = u"cm"
 const rad = u"radᵃ"
 const ang = u"Å"
 
-@testset "perf tracking" begin
 
-  boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
-  nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
-  target = Disk(boron + nitride, 100um, 2u"inch")
-  opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
+boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
+nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
+target = Disk(boron + nitride, 100um, 2u"inch")
+opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
+p = BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true)
+result1 = BCA.singleionbca(p, target, opts)
+
+boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
+nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
+target = Disk(boron + nitride, 100um, 2u"inch")
+opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
+p = BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true)
+@report_opt BCA.singleionbca(p, target, opts)
+
+boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
+nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
+target = Disk(boron + nitride, 100um, 2u"inch")
+opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
+@benchmark begin
   p = BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true)
   result1 = BCA.singleionbca(p, $target, $opts)
-
-  boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
-  nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
-  target = Disk(boron + nitride, 100um, 2u"inch")
-  opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
-  p = BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true)
-  @report_opt BCA.singleionbca(p, target, opts)
-
-  boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
-  nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
-  target = Disk(boron + nitride, 100um, 2u"inch")
-  opts = Options(name="hydrogen on boron-nitride", track_trajectories=true)
-  @benchmark begin
-    p = BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true)
-    result1 = BCA.singleionbca(p, $target, $opts)
-  end
+end
 
   # WITHOUT CONST UNITS
   # BenchmarkTools.Trial: 83 samples with 1 evaluation.
@@ -72,7 +71,93 @@ const ang = u"Å"
   #
   #  Memory estimate: 899.38 KiB, allocs estimate: 36396.
 
-end
+# WITH typeof(1.0u"eV") and friends
+# BenchmarkTools.Trial: 151 samples with 1 evaluation.
+#  Range (min … max):   2.723 ms … 58.826 ms  ┊ GC (min … max): 0.00% … 0.00%
+#  Time  (median):     34.141 ms              ┊ GC (median):    0.00%
+#  Time  (mean ± σ):   33.169 ms ± 10.130 ms  ┊ GC (mean ± σ):  1.15% ± 3.97%
+#
+#                                     ▄▁▇  ▄▂▄ ▂  █ ▅▁  ▂        
+#   ▃▁▁▅▁▃▁▁▃▅▁▅▁▃▃▃▅▁▁▁█▁▁▁▃▁█▅▅▆▃██▆████▆█████▅▆█▅██▃▆█▆▃▁▃▃▆ ▃
+#   2.72 ms         Histogram: frequency by time        49.6 ms <
+#
+#  Memory estimate: 258.58 KiB, allocs estimate: 8723.
+
+# MEAN FREE PATH FIX
+# BenchmarkTools.Trial: 316 samples with 1 evaluation.
+#  Range (min … max):  523.277 μs … 37.877 ms  ┊ GC (min … max): 0.00% … 24.93%
+#  Time  (median):      16.204 ms              ┊ GC (median):    0.00%
+#  Time  (mean ± σ):    15.817 ms ±  5.950 ms  ┊ GC (mean ± σ):  1.88% ±  5.89%
+#
+#                           ▁ ▃▁▃█▃▇▃▁▆▂▁▃ ▃                      
+#   ▄▃▃▃▃▃▃▄▄▃▄▆▆▅▃▅▅▆▃▅▄▃▅▅█████████████████▃█▄▅▅▅▄▃▅▃▃▃▃▃▁▁▃▁▃ ▄
+#   523 μs          Histogram: frequency by time         30.4 ms <
+#
+#  Memory estimate: 179.11 KiB, allocs estimate: 6082.
+
+# TARGET GET PROPERTY FIXES
+# Range (min … max):  219.533 μs … 20.290 ms  ┊ GC (min … max): 0.00% … 61.08%
+# Time  (median):       4.834 ms              ┊ GC (median):    0.00%
+# Time  (mean ± σ):     4.883 ms ±  2.105 ms  ┊ GC (mean ± σ):  3.86% ±  9.17%
+#
+#                     ▃▃▄▄▆█▅▂▁                                  
+#  ▃▃▄▄▄▄▄▅▃▄▄▃▄▅▄▆▅▆████████████▅▅▄▅▄▃▃▃▃▃▃▃▂▂▂▂▃▂▂▂▁▃▂▃▁▂▃▃▃▃ ▄
+#  220 μs          Histogram: frequency by time           12 ms <
+#
+# Memory estimate: 87.55 KiB, allocs estimate: 2390.
+
+
+using Profile
+using PProf
+Profile.clear()
+
+using ProfileCanvas
+
+boron = Material(10.811amu, 5, 0eV, 1eV, 5.76eV, 0.065u"1/Å^3")
+nitride = Material(14amu, 7, 0eV, 1eV, 0eV, 0.065u"1/Å^3")
+target = Disk(boron + nitride, 100ang, 2u"inch")
+opts = Options(name="hydrogen on boron-nitride", track_trajectories=true, track_recoil_trajectories=true)
+
+H = (BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:20)
+B = (BCA.default_incident(1.008amu, 5, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:20)
+Zn = (BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:20)
+ps = Base.Iterators.flatten((H, B, Zn))
+
+H = [BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:20]
+B = [BCA.default_incident(1.008amu, 5, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:20]
+Zn = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:200]
+ps = vcat(H, B, Zn)
+
+# profview
+ps = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:5000];
+BCA.run(ps, target, opts)
+@profview BCA.run(ps, target, opts)
+
+# profview single thread
+ps = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:5000];
+@profview BCA.bca(ps, target, opts)
+
+# profile
+ps = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:5000];
+@profile BCA.bca(ps, target, opts)
+pprof(webport=1113)
+
+@code_warntype BCA.bca(ps, target, opts)
+using JET
+@report_opt BCA.bca(ps, target, opts)
+
+# plot
+Zn = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:500];
+H = [BCA.default_incident(1.008amu, 1, 1000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:100];
+ps = vcat(H, Zn);
+result = BCA.run(ps, target, opts);
+trajectoryplot(result)
+
+# just run
+ps = [BCA.default_incident(1.008amu, 30, 9000eV, 1eV, 10eV, 0um, [0.9999999999984769, 1.7453292519934434e-6, 0.0], track_trajectories=true) for _ in 1:5000];
+result = BCA.run(ps, target, opts);
+
+aberdf = BCA.df(result)
 
 # using Logging
 # debuglogger = ConsoleLogger(stderr, Logging.Debug)

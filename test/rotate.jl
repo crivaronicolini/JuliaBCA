@@ -13,8 +13,8 @@ ang = u"Å"
 @testset "rotate" begin
   pos = Vec3(0.0, 0.0, 0.0) .* um
   dir = Vec3(cos(π / 4), sin(π / 4), 0.0)
-  ψ = (-π / 4)rad
-  ϕ = 0rad
+  ψ = Float64((-π / 4))rad
+  ϕ = 0.0rad
 
   particle = Particle(m=1amu, Z=1, E=1eV, Ec=1eV, Es=1eV, pos=pos, dir=dir)
 
@@ -29,7 +29,7 @@ ang = u"Å"
   @test particle.dir.y ≈ dir.y atol = 1e-12
 
   # Check that azimuthal rotation by 180 degrees works correctly
-  BCA.rotate!(particle, ψ, π * rad)
+  BCA.rotate!(particle, ψ, Float64(π) * rad)
   @test particle.dir.x ≈ 1 atol = 1e-12
   @test particle.dir.y ≈ 0 atol = 1e-12
 

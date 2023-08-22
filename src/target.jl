@@ -1,5 +1,5 @@
 using Unitful
-import Unitful: Length, Energy, Mass, Wavenumber, c0, me, Na
+import Unitful: Length, Energy, Mass, c0, me, Na
 # import PhysicalConstants.CODATA2018: c_0, e, ε_0, a_0, m_e
 const ang = u"Å"
 
@@ -19,19 +19,20 @@ const LINDHARD_REDUCED_ENERGY_PREFACTOR = 4334488014869623000000000000 * unit(ε
 
 
 @enum ElectronicStoppingMode INTERPOLATED LOWENERGYLOCAL LOWENERGYNONLOCAL LOWENERGYEQUIPARTITION
-@derived_dimension AtomicConcentration Unitful.𝐋^3
-@derived_dimension AtomicDensity inv(Unitful.𝐋^3)
+# @derived_dimension AtomicConcentration Unitful.𝐋^3
+# @derived_dimension AtomicDensity inv(Unitful.𝐋^3)
+const AtomicDensity = typeof(1.0u"1/Å^3")
 
 # Data layout
 # Target([ Layer1([ Material1, Material2]), Layer2([Material3, Material4]) )
 
 # material properties, Materials are input to Layers and Targets
 @kwdef struct Material
-  m::Vector{Mass}
+  m::Vector{MassConcrete}
   Z::Vector{Int} # atomic numbers
-  Eb::Vector{Energy} # target species bulk binding energies
-  Ec::Vector{Energy} # target species cutoff energies
-  Es::Vector{Energy} # target species surface binding energies (planar)
+  Eb::Vector{EnergyConcrete} # target species bulk binding energies
+  Ec::Vector{EnergyConcrete} # target species cutoff energies
+  Es::Vector{EnergyConcrete} # target species surface binding energies (planar)
   density::Vector{AtomicDensity}
   # concentrations::Vector{AtomicConcentration}
   concentrations::Vector{Real} = inv.(uconvert.(NoUnits, density * u"Å^3"))# concentrations siempre se usa normalizado por amu
@@ -57,12 +58,13 @@ Base.:+(x::Material, y::Material) = Material(m=[x.m; y.m], Z=[x.Z; y.Z], Eb=[x.E
 
 
 # Material(c::ChemElem) = Material(c.atomic_mass, c.number, 1u"eV", 1u"eV", 1u"eV", 1u"amu/cm^3")
-# Material(c::ChemElem, Eb::Energy, Ec::Energy, Es::Energy) = Material(c.atomic_mass, c.number, Eb, Ec, Es, 1u"amu/cm^3")
+# Material(c::ChemElem, Eb::EnergyConcrete, Ec::EnergyConcrete, Es::EnergyConcrete) = Material(c.atomic_mass, c.number, Eb, Ec, Es, 1u"amu/cm^3")
 
 struct Layer
   material::Material
-  thickness::Length
+  thickness::LengthConcrete
 end
+# Layer(m::Material, thick::Length) = Layer(m, Float64(thick))
 
 abstract type Target end
 abstract type Target3D <: Target end
@@ -70,7 +72,7 @@ abstract type Target2D <: Target end
 abstract type Target1D <: Target end
 abstract type Target0D <: Target end
 
-# Layer(m::Material, t::Length) = Layer([m], [t])
+# Layer(m::Material, t::LengthConcrete) = Layer([m], [t])
 
 # Base.:+(x::Layer, y::Layer) = Layer([x.materials...; y.materials...], [x.thicknesess...; y.thicknesess...])
 
@@ -92,22 +94,22 @@ end
 
 struct Disk <: Target3D
   layers::Vector{Layer}
-  diameter::Length
-  interfaces::Vector{Length}
-  top_energy_barrier_thicknesess::Length
-  bottom_energy_barrier_thicknesess::Length
-  function Disk(l::Layer, d::Length)
+  diameter::LengthConcrete
+  interfaces::Vector{LengthConcrete}
+  top_energy_barrier_thicknesess::LengthConcrete
+  bottom_energy_barrier_thicknesess::LengthConcrete
+  function Disk(l::Layer, d::LengthConcrete)
     Disk([l], d)
   end
   function Disk(ls::Vector{Layer}, d::Length)
     top_thick, bot_thick = energy_barrier_thicknesess(ls)
     interfaces = vcat([0.0u"μm"], accumulate(+, [l.thickness for l in ls]))
-    new(ls, d, interfaces, top_thick, bot_thick)
+    new(ls, Float64(d), interfaces, top_thick, bot_thick)
   end
 end
 
 # Disk(l::Layer, d::Length) = Disk(layer=l, diameter=d)
-Disk(m::Material, t::Length, d::Length) = Disk([Layer(m, t)], d)
+Disk(m::Material, t::Length, d::Length) = Disk([Layer(m, t)], Float64(d))
 
 Base.:+(x::Disk, y::Disk) = x.diameter == y.diameter ? Disk([x.layers..., y.layers...], x.diameter) : error("Diameters must be equal")
 
@@ -124,18 +126,18 @@ Base.:+(x::Disk, y::Disk) = x.diameter == y.diameter ? Disk([x.layers..., y.laye
 #   #   println()
 #   # end
 #   print("Diameter = $d.diameter")
-#   print("Top Energy Barrier Thickness = $d.top_energy_barrier_thicknesess")
-#   print("Bottom Energy Barrier Thickness = $d.bottom_energy_barrier_thicknesess")
+#   print("Top EnergyConcrete Barrier Thickness = $d.top_energy_barrier_thicknesess")
+#   print("Bottom EnergyConcrete Barrier Thickness = $d.bottom_energy_barrier_thicknesess")
 # end
 
-function radius(x::Length, y::Length)
-  @debug "raidus"
+function radius(x::LengthConcrete, y::LengthConcrete)
+  # @debug "raidus"
   √(x^2 + y^2)
 end
 
 #this function depends on the specific target geometry, so target must be specific
 function inside(pos::Vec3, disk::Disk)
-  @debug "inside"
+  # @debug "inside"
   x, y, z = pos
   if 0 * x < x < disk.interfaces[end] && radius(y, z) < disk.diameter / 2
     # @info "$(uconvert(ang, x)) inside 0-end: $(uconvert(ang, disk.interfaces[end]))"
@@ -147,7 +149,7 @@ end
 
 #
 function inside_simulation_boundary(pos::Vec3, disk::Disk)
-  @debug "inside_simulation_boundary"
+  # @debug "inside_simulation_boundary"
   x, y, z = pos
   bot_thickness = -10.0 * disk.bottom_energy_barrier_thicknesess
   top_thickness = 10.0 * disk.top_energy_barrier_thicknesess
@@ -160,14 +162,14 @@ function inside_simulation_boundary(pos::Vec3, disk::Disk)
 end
 
 function energy_barrier_thicknesess(layers::Vector{Layer})
-  @debug "energy_barrier_thicknesess"
+  # @debug "energy_barrier_thicknesess"
   #buscar cuenta en algún libro, rustBCA usa la dimension de la longitud del layer (ver geometry.rs:157)
   dtop, dbottom = sum(layers[1].material.density), sum(layers[end].material.density)
   (dtop, dbottom) .^ (-1 / 3) .* (2 / √π)
 end
 
 function inside_energybarrier(pos::Vec3, disk::Disk)
-  @debug "inside_energybarrier"
+  # @debug "inside_energybarrier"
   x, y, z = pos
   top_e, bot_e = disk.top_energy_barrier_thicknesess, disk.bottom_energy_barrier_thicknesess
   if -top_e <= x <= disk.interfaces[end] + bot_e && radius(y, z) <= disk.diameter + max(top_e, bot_e)
@@ -178,7 +180,7 @@ function inside_energybarrier(pos::Vec3, disk::Disk)
 end
 
 function layer_atpos(pos::Vec3, target::Target)
-  @debug "layer_atpos"
+  # @debug "layer_atpos"
   layerindex = searchsortedlast(target.interfaces, pos.x)
   if layerindex == 0
     layerindex += 1
@@ -190,24 +192,30 @@ function layer_atpos(pos::Vec3, target::Target)
 end
 
 function material_atpos(pos::Vec3, target::Target)
-  @debug "material_atpos"
+  # @debug "material_atpos"
   layer_atpos(pos, target).material
 end
 
-function average_property_atpos(property::Symbol, pos::Vec3, target::Target)
-  @debug "average_property_atpos"
+function average_Eb_atpos(pos::Vec3, target::Target)
+  # @debug "average_Eb_atpos"
   material = material_atpos(pos, target)
-  sum(material.concentrations .* getfield(material, property))
+  result = 0.0u"eV"
+  con = material.concentrations
+  Eb = material.Eb
+  for i in length(con)
+    result += con[i] * Eb[i]
+  end
+    result
 end
 
 function property_atpos(property::Symbol, pos::Vec3, target::Target)
-  @debug "property_atpos"
+  # @debug "property_atpos"
   material = material_atpos(pos, target)
   getfield(material, property)
 end
 
 function properties_atpos(properties::Vector{Symbol}, pos::Vec3, target::Target)
-  @debug "properties_atpos"
+  # @debug "properties_atpos"
   material = material_atpos(pos, target)
   answer = []
   for property in properties
@@ -218,22 +226,28 @@ end
 
 # Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
 function meanfreepath(pos::Vec3, target::Target)
-  @debug "meanfreepath"
-  total_number_density(pos, target)^(-1 / 3)
+  mfp = 0.0u"Å"
+  density = sum(property_atpos(:density, pos, target)).val
+  mfp += u"Å"*density^(-1/3)
 end
 
 function total_number_density(pos::Vec3, target::Target)
-  @debug "total_number_density"
+  # @debug "total_number_density"
   sum(property_atpos(:density, pos, target))
 end
 
 function cumulative_concentration_atpos(pos::Vec3, target::Target)
-  @debug "cumulative_concentration_atpos"
-  cumsum(property_atpos(:concentrations, pos, target))
+  # @debug "cumulative_concentration_atpos"
+  con = material_atpos(pos, target).concentrations
+  result = 0.0
+  for c in con
+    result += c
+  end
+  result
 end
 
 function electronic_density_atpos(pos::Vec3, target::Target)
-  @debug "electronic_density_atpos"
+  # @debug "electronic_density_atpos"
   ρ, Z, m = properties_atpos([:density, :Z, :m], pos, target)
   Ar = m * u"1/u"#TODO relative atomic mass
   return @. Na * Z * ρ / Ar * Mu
@@ -241,7 +255,7 @@ end
 
 # Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
 function choose(recoil::Vec3, target::Target)
-  @debug "choose"
+  # @debug "choose"
   m = layer_atpos(recoil, target).material
   for (componentidx, cumulative_concentration) in enumerate(cumulative_concentration_atpos(recoil, target))
     u = unit(cumulative_concentration)
@@ -259,7 +273,7 @@ end
 
 # Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
 function choose_deterministic(recoil::Vec3, target::Target)
-  @debug "choose_deterministic"
+  # @debug "choose_deterministic"
   m = layer_atpos(recoil, target).material
   for (componentidx, cumulative_concentration) in enumerate(cumulative_concentration_atpos(recoil, target))
     return componentidx, m.Z[componentidx],
@@ -272,10 +286,10 @@ function choose_deterministic(recoil::Vec3, target::Target)
 end
 
 function electronic_stopping_cross_sections(particle::Particle, target::Target, electronic_stopping_mode::ElectronicStoppingMode)
-  @debug "electronic_stopping_cross_sections"
+  # @debug "electronic_stopping_cross_sections"
   E, m, Za = particle.E, particle.m, particle.Z
   pos = particle.pos
-  stopping_powers = []
+  stopping_powers = typeof(1.0u"eV*Å^2")[]
   # ck, ns, Zbs = properties_atpos([:electronic_stopping_correction_factor, :n, :Z], pos, target)
   ck_vec, Zbs = properties_atpos([:electronic_stopping_correction_factor, :Z], pos, target)
   # TODO ISSUE? el original devuelve un float en vez de un vector, revisar
@@ -320,7 +334,7 @@ function electronic_stopping_cross_sections(particle::Particle, target::Target, 
 end
 
 function closest_point(pos::Vec3, disk::Disk)
-  @debug "closest_point"
+  # @debug "closest_point"
   x, y, z = pos
   radialdistance = abs(radius(y, z) - disk.diameter / 2)
   topdistance = abs(x - disk.interfaces[end])

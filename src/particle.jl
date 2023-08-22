@@ -4,6 +4,10 @@ using DimensionfulAngles
 using DimensionfulAngles: Angle
 
 Unitful.preferunits(u"Å")
+const LengthConcrete = typeof(1.0u"μm")
+const EnergyConcrete = typeof(1.0u"eV")
+const MassConcrete = typeof(1.0u"u")
+const AngleConcrete = typeof(1.0u"radᵃ")
 
 mutable struct Vec3{T} <: FieldVector{3,T}
   x::T
@@ -18,14 +22,14 @@ end
 # end
 
 struct TrajectoryElement
-  E::Energy
-  pos::Vec3{Length}
+  E::EnergyConcrete
+  pos::Vec3{LengthConcrete}
 end
 
 struct EnergyLoss
-  En::Energy
-  Ee::Energy
-  pos::Vec3{Length}
+  En::EnergyConcrete
+  Ee::EnergyConcrete
+  pos::Vec3{LengthConcrete}
 end
 
 abstract type AbstractParticle end
@@ -33,18 +37,18 @@ abstract type AbstractParticle end
 # Particle object. Particles in rustbca include incident ions and material atoms.
 # defaults to Particle::new from rustbca
 @kwdef mutable struct Particle <: AbstractParticle
-  const m::Mass
+  const m::MassConcrete
   const Z::Int
-  E::Energy
-  const Ec::Energy
-  const Es::Energy
-  pos::Vec3{Length}
-  dir::Vec3
-  pos_old::Vec3{Length} = pos
-  dir_old::Vec3 = dir
-  pos_origin::Vec3{Length} = pos
-  energy_origin::Energy = E
-  asymptotic_deflection::Length = 0.0 * u"μm"
+  E::EnergyConcrete
+  const Ec::EnergyConcrete
+  const Es::EnergyConcrete
+  pos::Vec3{LengthConcrete}
+  dir::Vec3{Float64}
+  pos_old::Vec3{LengthConcrete} = pos
+  dir_old::Vec3{Float64} = dir
+  pos_origin::Vec3{LengthConcrete} = pos
+  energy_origin::EnergyConcrete = E
+  asymptotic_deflection::LengthConcrete = 0.0 * u"μm"
   stopped::Bool = false
   left::Bool = false
   incident::Bool = false
@@ -57,11 +61,11 @@ abstract type AbstractParticle end
   interactionindex::Int = 1
   weight::Real = 1.0
   tag::Int = 0
-  tracked_vector::Vec3 = [0.0, 0.0, 0.0]
+  tracked_vector::Vec3{Float64} = Vec3(0.0, 0.0, 0.0)
 end
 
 function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x::Length, dir::Vector; track_trajectories=false)
-  @debug "default_incident"
+  # @debug "default_incident"
   dir = Vec3(dir...)
 
   # @assert isapprox(abs(dir.x / dir_mag), 1, atol=eps(Float64), rtol=0) "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component."
@@ -70,11 +74,11 @@ function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x:
   # dir_mag = norm(dir)
   @assert E > zero(E) "Input error: incident energy $E; must be greater than zero."
 
-  Particle(m=m, Z=Z, E=E, Ec=Ec, Es=Es, pos=Vec3(ustrip(x), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true, track_trajectories=track_trajectories)
+  Particle(m=Float64(m), Z=Z, E=Float64(E), Ec=Float64(Ec), Es=Float64(Es), pos=Vec3(ustrip(Float64(x)), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true, track_trajectories=track_trajectories)
 end
 
 function add_trajectory!(particle::Particle)
-  @debug "add_trajectory!" particle.trajectory particle.E particle.pos
+  # @debug "add_trajectory!" particle.trajectory particle.E particle.pos
   if particle.track_trajectories
     push!(particle.trajectory, TrajectoryElement(particle.E, particle.pos))
   end
@@ -82,14 +86,31 @@ end
 
 # MOVED to main.jl
 # # If `track_energy_losses`, add the most recent electronic and nuclear energy loss terms and (x, y, z) to the energy loss tracker.
-# function energy_loss!(particle::Particle, options::Options, En::Energy, Ee::Energy)
+# function energy_loss!(particle::Particle, options::Options, En::EnergyConcrete, Ee::EnergyConcrete)
 #   if particle.incident && options.track_energy_losses
-#     push!(particle.energies, EnergyLoss(Ee, En, particle.pos))
+#     push!(particle.energies, EnergyConcreteLoss(Ee, En, particle.pos))
 #   end
 # end
 
+
+# CONCRETE TYPES DAN CERO CODE WARNTYPES
+# @kwdef mutable struct Particle4
+#   const m::typeof(1.0u"u")
+#   const Z::Int
+#   E::typeof(1.0u"eV")
+#   const Ec::typeof(1.0u"eV")
+#   const Es::typeof(1.0u"eV")
+#   pos::Vec3{typeof(1.0u"μm")}
+#   dir::Vec3{Float64}
+# end
+# p2 = Particle4(1u"u", 2, 3.3u"eV", 4u"eV", 5u"eV", Vec3(1.2, 2.0, 1.0)u"μm", Vec3(1.0, 0.0, 0.0))
+
+# function get_momentum(particle::Particle4)
+#   speed = sqrt(2.0 * particle.E / particle.m)
+#   return particle.m * speed .* particle.dir
+# end
+
 function get_momentum(particle::Particle)
-  @debug "get_momentum"
   speed = sqrt(2.0 * particle.E / particle.m)
   return particle.m * speed .* particle.dir
 end
@@ -111,8 +132,8 @@ function normalized(v::FieldVector)
 end
 
 #Rotate a particle by deflection ψ at an azimuthal angle ϕ
-function rotate!(particle::Particle, ψ::Angle, ϕ::Angle)
-  @debug "rotate!"
+function rotate!(particle::Particle, ψ::AngleConcrete, ϕ::AngleConcrete)
+  # @debug "rotate!"
   #Particle direction update formula (2) from the original TRIDYN paper, see Moeller and Eckstein 1988
   cosα, cosβ, cosγ = particle.dir
   sinα = √(1 - cosα^2)
@@ -124,8 +145,8 @@ function rotate!(particle::Particle, ψ::Angle, ϕ::Angle)
     cosψ * cosγ - (cosϕ * cosα * cosγ + sinϕ * cosβ) * sinψ / sinα))
 end
 
-function advance!(particle::Particle, mfp::Length, asymptotic_deflection::Length)
-  @debug "advance!"
+function advance!(particle::Particle, mfp::LengthConcrete, asymptotic_deflection::LengthConcrete)
+  # @debug "advance!"
   if particle.E > particle.Ec
     add_trajectory!(particle)
   end
@@ -150,8 +171,8 @@ function advance!(particle::Particle, mfp::Length, asymptotic_deflection::Length
 end
 
 # change particle direction by refraction
-function surface_refraction!(particle::Particle, normal::Vec3, Es::Energy)
-  @debug "surface_refraction!"
+function surface_refraction!(particle::Particle, normal::Vec3, Es::EnergyConcrete)
+  # @debug "surface_refraction!"
   E = particle.E
   cosθ = dot(particle.dir, normal)
 
@@ -163,7 +184,7 @@ end
 
 # Calculate the refraction angle based on the surface binding energy of the material.
 function refraction_angle(cosθ, energy_old, energy_new)
-  @debug "refraction_angle"
+  # @debug "refraction_angle"
   cosθ = cosθ > 1 ? sign(cosθ) : cosθ
   sinθ_0 = sqrt(1 - cosθ^2)
   sinθ_1 = sinθ_0 * sqrt(energy_old / energy_new)

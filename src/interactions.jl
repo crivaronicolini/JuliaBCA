@@ -1,4 +1,3 @@
-using Unitful: Length, Energy, Mass, Density, Area
 
 abstract type InteractionPotential end
 struct Moliere <: InteractionPotential end
@@ -33,21 +32,21 @@ crossing_point_doca(::Type{WW}) = 50.0 * u"A"
 crossing_point_doca(::Type{InteractionPotential}) = 10.0 * u"A"
 
 # TODO more types with union
-function screened_coulomb(r::Length, a::Length, Za::Int, Zb::Int, interaction_potential::Moliere)
-  @debug "screened_coulomb"
+function screened_coulomb(r::LengthConcrete, a::LengthConcrete, Za::Int, Zb::Int, interaction_potential::Moliere)
+  # @debug "screened_coulomb"
   Za * Zb * (e^2) / (4π * ε0 * r * ϕ_screening(upreferred(r / a), interaction_potential))
 end
 
 # Coulombic interaction potential.
-function coulomb(r::Length, Za::Int, Zb::Int)
-  @debug "coulomb"
+function coulomb(r::LengthConcrete, Za::Int, Zb::Int)
+  # @debug "coulomb"
   Za * Zb * (e^2) / (4π * ε0 * r)
 end
 
 # todo rest
-interaction_potential_fn(r::Length, a::Length, Za::Int, Zb::Int, interaction_potential::Moliere) = screened_coulomb(r, a, Za, Zb, interaction_potential)
+interaction_potential_fn(r::LengthConcrete, a::LengthConcrete, Za::Int, Zb::Int, interaction_potential::Moliere) = screened_coulomb(r, a, Za, Zb, interaction_potential)
 
-interaction_potential_fn(r::Length, ::Real, Za::Int, Zb::Int, ::Type{Coulomb}) = coulomb(r, Za, Zb)
+interaction_potential_fn(r::LengthConcrete, ::Real, Za::Int, Zb::Int, ::Type{Coulomb}) = coulomb(r, Za, Zb)
 
 moliere(xi::Real) = 0.35 * exp(-0.3 * xi) + 0.55 * exp(-1.2 * xi) + 0.10 * exp(-6.0 * xi)
 
@@ -70,7 +69,7 @@ dϕ_screening(xi::Real, ::Type{Moliere}) = diff_moliere(xi)
 
 #TODO
 function screening_length(Za::Int, Zb::Int, ::Type{Moliere})
-  @debug "screening_length"
+  # @debug "screening_length"
   # returns length
   0.8853 * a_0 * (√Za + √Zb)^(-2 / 3)
 end
@@ -81,23 +80,23 @@ end
 # end
 
 # #Interaction potential between two particles a and b at a distance `r`.
-# function interaction_potential(r::Length, a::Float64, Za::Float64, Zb::Float64, pot::Lennard_Jones_12_6)
+# function interaction_potential(r::LengthConcrete, a::Float64, Za::Float64, Zb::Float64, pot::Lennard_Jones_12_6)
 #   lennard_Jones_12_6_potential(r, pot.σ, pot.ε)
 # end
 #
-# function interaction_potential(r::Length, a::Float64, Za::Float64, Zb::Float64, pot::Lennard_Jones_65_6)
+# function interaction_potential(r::LengthConcrete, a::Float64, Za::Float64, Zb::Float64, pot::Lennard_Jones_65_6)
 #   lennard_Jones_65_6_potential(r, pot.σ, pot.ε)
 # end
 #
-# function interaction_potential(r::Length, a::Float64, Za::Float64, Zb::Float64, pot::Morse)
+# function interaction_potential(r::LengthConcrete, a::Float64, Za::Float64, Zb::Float64, pot::Morse)
 #   morse_potential(r, pot.D, pot.α, pot.r₀)
 # end
 #
-# function interaction_potential(r::Length, a::Float64, Za::Float64, Zb::Float64, pot::WW)
+# function interaction_potential(r::LengthConcrete, a::Float64, Za::Float64, Zb::Float64, pot::WW)
 #   tungsten_tungsten_cubic_spline(r)
 #
 # end
-# function interaction_potential(r::Length, a::Float64, Za::Float64, Zb::Float64, pot::Coulomb)
+# function interaction_potential(r::LengthConcrete, a::Float64, Za::Float64, Zb::Float64, pot::Coulomb)
 #   coulomb_potential(r, Za, Zb)
 # end
 
@@ -118,13 +117,13 @@ first_screening_radius(::Type{Moliere}) = 0.3
 doca_function(x0::Real, β::Real, reduced_energy, interaction_potential::Type{Moliere}) = x0 - ϕ_screening(x0, interaction_potential) / reduced_energy - β^2 / x0
 
 # First derivative w.r.t. `r` of the distance of closest approach function for screened coulomb potentials.
-diff_doca_function(x0::Real, β::Real, reduced_energy::Energy, interaction_potential::InteractionPotential) = β^2 / x0^2 - dϕ_screening(x0, interaction_potential) / reduced_energy + 1
+diff_doca_function(x0::Real, β::Real, reduced_energy::EnergyConcrete, interaction_potential::InteractionPotential) = β^2 / x0^2 - dϕ_screening(x0, interaction_potential) / reduced_energy + 1
 
 # TODO rest of interaction potentials 
-function distance_of_closest_approach_function(a::Length, Za::Int, Zb::Int, relative_energy::Energy, impact_parameter::Length, interaction_potential::Type{Moliere})
-  @debug "distance_of_closest_approach_function"
+function distance_of_closest_approach_function(a::LengthConcrete, Za::Int, Zb::Int, relative_energy::EnergyConcrete, impact_parameter::LengthConcrete, interaction_potential::Type{Moliere})
+  # @debug "distance_of_closest_approach_function"
   reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR * a * relative_energy / (Za * Zb)
   β = impact_parameter / a |> NoUnits
-  f(r::Length) = doca_function(upreferred(r / a), β, reduced_energy, interaction_potential)
+  f(r::LengthConcrete) = doca_function(upreferred(r / a), β, reduced_energy, interaction_potential)
   return f
 end

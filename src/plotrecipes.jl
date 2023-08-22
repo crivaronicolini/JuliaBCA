@@ -42,10 +42,10 @@ end
       else
         nothing
       end
-      # p.Z ∉ Zs ? string(p.Z) : nothing
       color := p.Z
       BCA.trajectory(p, unit)
     end
-
   end
 end
+
+
