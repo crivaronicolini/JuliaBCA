@@ -29,15 +29,15 @@ const AtomicDensity = typeof(1.0u"1/Å^3")
 # material properties, Materials are input to Layers and Targets
 @kwdef struct Material
   m::Vector{MassConcrete}
-  Z::Vector{Int} # atomic numbers
+  Z::Vector{Int16} # atomic numbers
   Eb::Vector{EnergyConcrete} # target species bulk binding energies
   Ec::Vector{EnergyConcrete} # target species cutoff energies
   Es::Vector{EnergyConcrete} # target species surface binding energies (planar)
   density::Vector{AtomicDensity}
   # concentrations::Vector{AtomicConcentration}
-  concentrations::Vector{Real} = inv.(uconvert.(NoUnits, density * u"Å^3"))# concentrations siempre se usa normalizado por amu
-  interactionindex::Vector{Int} = ones(Int64, length(m)) # index of interaction matrix to use for each species. Defaults to [1], which means all interactions use the same potential that occupies i=1, j=1 of the interaction index matrix
-  electronic_stopping_correction_factor::Vector{Real} = ones(Float64, length(m))
+  concentrations::Vector{Float64} = inv.(uconvert.(NoUnits, density * u"Å^3"))# concentrations siempre se usa normalizado por amu
+  interactionindex::Vector{Int16} = ones(Int16, length(m)) # index of interaction matrix to use for each species. Defaults to [1], which means all interactions use the same potential that occupies i=1, j=1 of the interaction index matrix
+  electronic_stopping_correction_factor::Vector{Float64} = ones(Float64, length(m))
   # TODO chequear en new que todos los vectores tengan el mismo largo
 end
 
@@ -205,7 +205,7 @@ function average_Eb_atpos(pos::Vec3, target::Target)
   for i in length(con)
     result += con[i] * Eb[i]
   end
-    result
+  result
 end
 
 function property_atpos(property::Symbol, pos::Vec3, target::Target)
@@ -228,7 +228,7 @@ end
 function meanfreepath(pos::Vec3, target::Target)
   mfp = 0.0u"Å"
   density = sum(property_atpos(:density, pos, target)).val
-  mfp += u"Å"*density^(-1/3)
+  mfp += u"Å" * density^(-1 / 3)
 end
 
 function total_number_density(pos::Vec3, target::Target)
@@ -254,7 +254,7 @@ function electronic_density_atpos(pos::Vec3, target::Target)
 end
 
 # Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
-function choose(recoil::Vec3, target::Target)
+function choose(recoil::Vec3{LengthConcrete}, target::Target)
   # @debug "choose"
   m = layer_atpos(recoil, target).material
   for (componentidx, cumulative_concentration) in enumerate(cumulative_concentration_atpos(recoil, target))
@@ -291,7 +291,7 @@ function electronic_stopping_cross_sections(particle::Particle, target::Target, 
   pos = particle.pos
   stopping_powers = typeof(1.0u"eV*Å^2")[]
   # ck, ns, Zbs = properties_atpos([:electronic_stopping_correction_factor, :n, :Z], pos, target)
-  ck_vec, Zbs = properties_atpos([:electronic_stopping_correction_factor, :Z], pos, target)
+  ck_vec::Vector{Float64}, Zbs::Vector{Int16} = properties_atpos([:electronic_stopping_correction_factor, :Z], pos, target)
   # TODO ISSUE? el original devuelve un float en vez de un vector, revisar
   ck = ck_vec[1]
 
@@ -299,7 +299,7 @@ function electronic_stopping_cross_sections(particle::Particle, target::Target, 
     β = √(1 - (1 + E / (m * c0^2))^(-2))
     v = β * c0
 
-    # This term is an empirical fit to the mean ionization potential
+    # This term is an empirical fit to the mean ionizastion potential
     Iₒ = Zb < 13 ? 12.0 + 7.0 / Zb : 9.76 + 58.5Zb^(-1.19)
     I = Zb * Iₒ * 10u"eV"
 

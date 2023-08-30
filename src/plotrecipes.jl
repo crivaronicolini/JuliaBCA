@@ -9,29 +9,26 @@ end
 @userplot TrajectoryPlot
 @recipe function f(t::TrajectoryPlot)
   ps = t.args[1]
-  unit = length(t.args) == 2 ? t.args[2] : u"Å"
-  # p = plot()
-  # map(p -> plot!(p, unit), ps)
-  # display(p)
+  target = t.args[2]
+  unit = length(t.args) == 3 ? t.args[3] : u"Å"
   framestyle := :grid
   aspect_ratio --> true
   title --> "Ion trajectories"
   xlabel --> "x "
   ylabel --> "y "
-
-  @series begin
-    seriestype := :vline
-    label := nothing
-    color := :gray
-    [0]
+  intf =target.interfaces
+  for i in intf
+    @series begin
+      seriestype := :vline
+      label := nothing
+      if i==0.0u"Å" || i==intf[end]
+        color := :gray
+      else
+        color := :lightgray
+      end
+      [i]
+    end
   end
-
-  # @series begin
-  #   seriestype := :shape
-  #   color := :gray
-  #   [(0, 100), (0, -100), (100, -100), (100, 100)]
-  # end
-
   Zs = Int64[]
   for p in ps
     @series begin
@@ -43,6 +40,7 @@ end
         nothing
       end
       color := p.Z
+      # z_order := p.Z
       BCA.trajectory(p, unit)
     end
   end

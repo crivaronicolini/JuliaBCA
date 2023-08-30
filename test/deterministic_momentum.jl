@@ -3,12 +3,12 @@ using BCA
 using Unitful
 using DimensionfulAngles
 
-amu = u"u"
-eV = u"eV"
-um = u"μm"
-cm = u"cm"
-rad = u"radᵃ"
-ang = u"Å"
+const amu = u"u"
+const eV = u"eV"
+const um = u"μm"
+const cm = u"cm"
+const rad = u"radᵃ"
+const ang = u"Å"
 
 @testset "test deterministic momentum" begin
   for energy_eV in [1]eV

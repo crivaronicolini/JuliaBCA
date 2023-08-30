@@ -58,10 +58,11 @@ abstract type AbstractParticle end
   track_trajectories::Bool = false
   number_collision_events::Int = 0
   backreflected::Bool = false
-  interactionindex::Int = 1
-  weight::Real = 1.0
-  tag::Int = 0
+  interactionindex::Int8 = 1
+  weight::Float64 = 1.0
+  tag::Int8 = 0
   tracked_vector::Vec3{Float64} = Vec3(0.0, 0.0, 0.0)
+  is_from_target::Bool = true
 end
 
 function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x::Length, dir::Vector; track_trajectories=false)
@@ -74,7 +75,7 @@ function default_incident(m::Mass, Z::Int, E::Energy, Ec::Energy, Es::Energy, x:
   # dir_mag = norm(dir)
   @assert E > zero(E) "Input error: incident energy $E; must be greater than zero."
 
-  Particle(m=Float64(m), Z=Z, E=Float64(E), Ec=Float64(Ec), Es=Float64(Es), pos=Vec3(ustrip(Float64(x)), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true, track_trajectories=track_trajectories)
+  Particle(m=Float64(m), Z=Z, E=Float64(E), Ec=Float64(Ec), Es=Float64(Es), pos=Vec3(ustrip(Float64(x)), 0.0, 0.0) .* unit(x), dir=normalized(dir), incident=true, track_trajectories=track_trajectories, is_from_target=false)
 end
 
 function add_trajectory!(particle::Particle)

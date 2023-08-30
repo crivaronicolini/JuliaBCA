@@ -79,7 +79,7 @@ end
 function energy_loss!(particle::Particle, En::EnergyConcrete, Ee::EnergyConcrete, options::Options)
   # @debug "energy_loss!"
   if particle.incident && options.track_energy_losses
-    push!(particle.energies, EnergyConcreteLoss(Ee, En, particle.pos))
+    push!(particle.energies, EnergyLoss(Ee, En, particle.pos))
   end
 end
 
@@ -91,36 +91,38 @@ end
 function determine_mfp_phi_impact_parameter(particle1::Particle, target::Target, options::Options)
   # @debug "determine_mfp_phi_impact_parameter"
 
-  mfp = meanfreepath(particle1.pos, target)
+  mfp::LengthConcrete = meanfreepath(particle1.pos, target)
 
   # Each weak collision gets its own aziumuthal angle in annuli around collision point
   collision_order = options.weak_collision_order
   ϕs_azimuthal = 2π * rand(collision_order) * u"radᵃ"
 
-  if options.high_energy_free_flight_paths
-    #TODO
-    @warn "high_energy_free_flight_paths is not implemented"
+  # if options.high_energy_free_flight_paths
+  #   #TODO
+  #   @warn "high_energy_free_flight_paths is not implemented"
+  #
+  # else
 
-  else
-    #If not using free flight paths, use weak collision model
-    pmax = mfp / √π
+  #If not using free flight paths, use weak collision model
+  pmax = mfp / √π
 
-    #cylindrical geometry
-    impactparameters = pmax .* sqrt.(rand(collision_order))
+  #cylindrical geometry
+  impactparameters = pmax .* sqrt.(rand(collision_order))
 
-    #Atomically rough surface - scatter initial collisions
-    if particle1.first_step
-      mfp *= rand()
-      particle1.first_step = false
-    end
-
-    if options.mean_free_path_model == GASEOUS
-      mfp *= -log(rand())
-    end
-
-    return [CollisionGeometry(ϕs_azimuthal[k], impactparameters[k], mfp) for k in eachindex(ϕs_azimuthal)]
-    # return CollisionGeometry(ϕs_azimuthal, impactparameters, mfp)
+  #Atomically rough surface - scatter initial collisions
+  if particle1.first_step
+    mfp *= rand()
+    particle1.first_step = false
   end
+
+  if options.mean_free_path_model == GASEOUS
+    mfp *= -log(rand())
+  end
+
+  return [CollisionGeometry(ϕs_azimuthal[k], impactparameters[k], mfp) for k in eachindex(ϕs_azimuthal)]
+  # return CollisionGeometry(ϕs_azimuthal, impactparameters, mfp)
+
+  # end
 end
 
 # For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
@@ -181,8 +183,8 @@ function distance_of_closest_approach(particle1::Particle, particle2::Particle, 
   f = distance_of_closest_approach_function(a, Za, Zb, relative_energy, p, interaction_potential)
 
   # try
-    x0 = find_zero(f, p)
-    return x0/a |> NoUnits
+  x0 = find_zero(f, p)
+  return x0 / a |> NoUnits
   # catch
   #   error("failed to calculate closest approach on find_zero")
   # end
@@ -297,15 +299,15 @@ function update_particle_energy!(particle::Particle, target::Target, distance_tr
     n = property_atpos(:density, pos, target) * u"Å"
 
     #TODO electronic stopping mode
-    ΔE = e_stop_mode == INTERPOLATED ? sum(n .* e_stop_powers) :
-         e_stop_mode == LOWENERGYLOCAL ? sum(n .* e_stop_powers) * distance_traveled :
-         e_stop_mode == LOWENERGYNONLOCAL ? oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) :
-         e_stop_mode == LOWENERGYEQUIPARTITION ? 0.5sum(n .* e_stop_powers) * distance_traveled + 0.5oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) : error("No electronic stopping mode supplied")
+    ΔE::EnergyConcrete = e_stop_mode == INTERPOLATED ? sum(n .* e_stop_powers) :
+                         e_stop_mode == LOWENERGYLOCAL ? sum(n .* e_stop_powers) * distance_traveled :
+                         e_stop_mode == LOWENERGYNONLOCAL ? oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) :
+                         e_stop_mode == LOWENERGYEQUIPARTITION ? 0.5sum(n .* e_stop_powers) * distance_traveled + 0.5oen_robinson_loss(particle.Z, strong_collision_Z, e_stop_powers[strong_collision_index], x0, interaction_potential) : error("No electronic stopping mode supplied")
 
     # @debug ΔE
     particle.E += -ΔE
 
-    energy_loss!(particle, E_recoil, ΔE |> u"eV", options)
+    energy_loss!(particle, E_recoil, ΔE, options)
 
   elseif E_recoil > 0.0u"eV"
     energy_loss!(particle, E_recoil, 0.0u"eV", options)
@@ -344,9 +346,10 @@ function singleionbca(particle::Particle, target::Target, options::Options)
       # @debug "while !particle1.stopped && !particle1.left"
 
       collisiongeometries = determine_mfp_phi_impact_parameter(particle1, target, options)
+      # collisiongeometries::Vector{CollisionGeometry} = determine_mfp_phi_impact_parameter(particle1, target, options)
 
       if options.accelerated_ions
-        if !particle1 in target
+        if !inside(particle.pos, target)
           point = closest_point(particle1.pos, target)
           distance_to_target = dist(point, particle1.pos)
         else
@@ -381,7 +384,7 @@ function singleionbca(particle::Particle, target::Target, options::Options)
           end
 
           # Energy transfer to recoil
-          particle2.E = bca_result.E_recoil - average_Eb_atpos( particle2.pos, target)
+          particle2.E = bca_result.E_recoil - average_Eb_atpos(particle2.pos, target)
           #TODO por que el origen es ese?
           particle2.energy_origin = particle2.E
 
@@ -436,7 +439,7 @@ end
 
 function bca(particles, target::Target, options::Options)
   result = Particle[]
-  for (i, p) in enumerate(particles)
+  for p in particles
     r = BCA.singleionbca(p, target, options)
     push!(result, r...)
   end
@@ -445,7 +448,7 @@ end
 
 function bca(particles::Array{Particle}, target::Target, options::Options)
   result = Particle[]
-  for (i, p) in enumerate(particles)
+  for p in particles
     r = singleionbca(p, target, options)
     push!(result, r...)
   end
@@ -453,7 +456,7 @@ function bca(particles::Array{Particle}, target::Target, options::Options)
 end
 
 function run(particles::Array{Particle}, target::Target, options::Options)
-  chunks =Iterators.partition(particles, length(particles) ÷ Threads.nthreads())
+  chunks = Iterators.partition(particles, length(particles) ÷ Threads.nthreads())
   tasks = map(chunks) do chunk
     Threads.@spawn bca(chunk, target, options)
   end
